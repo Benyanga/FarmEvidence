@@ -1,0 +1,12 @@
+.ui-card {
+  background: var(--bg-card);
+  border: none;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary);
+}
+
+.ui-card--flush {
+  border-color: transparent;
+  box-shadow: none;
+}

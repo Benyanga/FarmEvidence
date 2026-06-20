@@ -1,0 +1,1 @@
+export { computeVariance } from "./expectedProfit";

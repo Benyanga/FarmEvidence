@@ -1,0 +1,46 @@
+{
+  "plotMetadata": [
+    "Plot ID",
+    "Treatment",
+    "Replicate",
+    "Plot Size (m²)",
+    "Plot Size (ha)",
+    "Extrapolation factor"
+  ],
+  "inputCostsColumns": [
+    "Date",
+    "Input",
+    "Cost Type",
+    "Quantity",
+    "Unit",
+    "Unit Cost (RWF)",
+    "Total Cost (RWF)"
+  ],
+  "inputCostTypeOptions": [
+    { "value": "C_SD", "label": "System dependent" },
+    { "value": "C_SI", "label": "System independent" }
+  ],
+  "labourColumns": [
+    "Date",
+    "Practice",
+    "Cost Type",
+    "Time",
+    "Time Unit",
+    "Wage Rate (RWF/day)",
+    "Total Cost (RWF)"
+  ],
+  "cbaSummaryColumns": [
+    "Plot ID",
+    "Treatment",
+    "Replicate",
+    "Plot Size (m²)",
+    "Plot Size (ha)",
+    "Total Input Cost",
+    "Total Labour Cost",
+    "Total Cost",
+    "Yield (kg/plot)",
+    "Yield (kg/ha)",
+    "Value (RWF/ha)",
+    "Net Benefit"
+  ]
+}

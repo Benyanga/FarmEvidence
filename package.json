@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "cd farm-evidence && npm run dev",
+    "dev:api": "cd farm-evidence && npm run dev:api",
+    "dev:all": "cd farm-evidence && npm run dev:all",
+    "build": "cd farm-evidence && npm run build",
+    "lint": "cd farm-evidence && npm run lint",
+    "preview": "cd farm-evidence && npm run preview",
+    "test": "cd farm-evidence && npm run test"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

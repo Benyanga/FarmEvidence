@@ -1,0 +1,7 @@
+{
+  "app.title": "FarmEvidence",
+  "mode.farmer": "FARMER MODE",
+  "mode.research": "RESEARCH MODE",
+  "login.title": "Select role and language",
+  "blocked.stats": "Statistical comparison requires Research Mode. Your current session is Farmer Mode."
+}

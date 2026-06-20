@@ -1,0 +1,9 @@
+{
+  "name": "FarmEvidence",
+  "short_name": "FarmEvidence",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#14532d",
+  "icons": []
+}
