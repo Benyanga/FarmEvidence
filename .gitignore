@@ -1,0 +1,19 @@
+# Node modules
+node_modules/
+
+# Local workspace artifacts
+FarmEvidence.bundle
+FarmEvidence.zip
+push_tmp/
+
+# Temporary files
+*.log
+*.tmp
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/

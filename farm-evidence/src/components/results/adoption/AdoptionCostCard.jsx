@@ -4,8 +4,8 @@ export function AdoptionCostCard({ result }) {
   if (adoptionCost === null || adoptionCost === undefined) {
     return (
       <div style={{ background: "var(--fe-white)", borderRadius: "14px", border: "1px solid var(--fe-grey-200)", boxShadow: "var(--fe-shadow-surface)", padding: "18px 20px", borderLeft: "4px solid var(--fe-grey-400)" }}>
-        <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--fe-grey-900)" }}>No adoption cost yet</span>
-        <span style={{ fontSize: "13px", color: "var(--fe-grey-500)", marginTop: "4px", display: "block" }}>System stable — not yet computed</span>
+        <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--fe-grey-900)" }}>Stable system</span>
+        <span style={{ fontSize: "13px", color: "var(--fe-grey-500)", marginTop: "4px", display: "block" }}>Stable system — no adoption cost applies</span>
       </div>
     );
   }

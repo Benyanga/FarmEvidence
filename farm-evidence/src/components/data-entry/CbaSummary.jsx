@@ -5,6 +5,8 @@ import { useSessionStore } from '../../store/sessionStore';
 import { ScreenTopbar } from '../../components/shared/ScreenTopbar';
 import schema from '../../utils/plotSchema.json';
 import { exportToXlsx } from '../../utils/cbaExport';
+import ResearchAdoptionCard from '../results/adoption/ResearchAdoptionCard';
+import AdoptionTrendPanel from '../results/adoption/AdoptionTrendPanel';
 
 export default function CbaSummary({ mode = 'FARMER', id }) {
   const activeFarm = useSessionStore((s) => s.activeFarm);
@@ -129,6 +131,9 @@ export default function CbaSummary({ mode = 'FARMER', id }) {
             <div style={{ marginTop: 8 }}>
               <div>p-value: {data.p_value}</div>
               <div>Cohen's d: {data.cohens_d}</div>
+              <div style={{ marginTop: 8 }}>
+                <ResearchAdoptionCard data={data} />
+              </div>
             </div>
           </div>
         </div>
@@ -187,6 +192,13 @@ export default function CbaSummary({ mode = 'FARMER', id }) {
               <tr>{schema.cbaSummaryColumns.map(c => <td key={c}>{farmerRow[c]}</td>)}</tr>
             </tbody>
           </table>
+          {/* Adoption cost trend panel (uses recorded adoptionCostHistory) */}
+          {Array.isArray(data.steps?.adoptionCostHistory) && data.steps.adoptionCostHistory.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <h4 style={{ marginBottom: 8, fontSize: 13, fontWeight: 600 }}>Adoption Cost Trend</h4>
+              <AdoptionTrendPanel adoptionCostHistory={data.steps.adoptionCostHistory} />
+            </div>
+          )}
         </div>
       </div>
     </>

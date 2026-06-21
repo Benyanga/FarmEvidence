@@ -57,25 +57,31 @@ app.use('/api/farms', farmsRoutes);
 app.use('/api/farm-seasons', farmSeasonRoutes);
 app.use('/api/seasons', seasonRoutes);
 
-// Require Clerk keys and attach Clerk middleware. Fail startup if missing.
-const clerkPubKey = process.env.CLERK_PUBLISHABLE_KEY;
-const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-if (!clerkPubKey || !clerkSecretKey) {
-  console.error('Clerk keys missing — Clerk-only authentication is required. Aborting startup.');
-  process.exit(1);
-}
-
+// Require Clerk keys and attach Clerk middleware. In test mode, bypass Clerk.
 let authGuard;
 let getAuthFn;
-try {
-  const clerk = await import('@clerk/express');
-  app.use(clerk.clerkMiddleware());
-  authGuard = clerk.requireAuth;
-  getAuthFn = clerk.getAuth;
-  console.log('Clerk middleware attached.');
-} catch (e) {
-  console.error('Failed to initialize Clerk:', e.message);
-  process.exit(1);
+if (process.env.NODE_ENV === 'test') {
+  // In tests, skip Clerk and allow all requests
+  authGuard = () => (_req, _res, next) => next();
+  getAuthFn = () => ({ userId: 'test' });
+  console.log('Running in test mode: Clerk disabled');
+} else {
+  const clerkPubKey = process.env.CLERK_PUBLISHABLE_KEY;
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+  if (!clerkPubKey || !clerkSecretKey) {
+    console.error('Clerk keys missing — Clerk-only authentication is required. Aborting startup.');
+    process.exit(1);
+  }
+  try {
+    const clerk = await import('@clerk/express');
+    app.use(clerk.clerkMiddleware());
+    authGuard = clerk.requireAuth;
+    getAuthFn = clerk.getAuth;
+    console.log('Clerk middleware attached.');
+  } catch (e) {
+    console.error('Failed to initialize Clerk:', e.message);
+    process.exit(1);
+  }
 }
 
 // Use local MongoDB by default during development. In production, prefer provided cloud URI.
@@ -496,6 +502,40 @@ app.get('/api/computation-results/latest/:farm_id/:season_ref', authGuard(), asy
     const roi = revenue_ha > 0 ? profit_ha / Math.max(revenue_ha, 1) : 0;
     const cpu = totalYield > 0 ? totalSystemCost / totalYield : 0;
 
+    // Compute adoption cost using previous season profit difference when system changed
+    let adoptionCostValue = farmSeasonRecord.adoption_cost ?? null;
+    try {
+      const priorRecords = await mongoose.connection.collection('farm_season_records')
+        .find({ $or: [ { farm_id: farmSeasonRecord.farm_id }, { farmId: farmSeasonRecord.farm_id } ] })
+        .sort({ year: 1, season: 1 })
+        .toArray();
+      const idx = priorRecords.findIndex(r => (r.season_ref === farmSeasonRecord.season_ref || (r.year === farmSeasonRecord.year && r.season === farmSeasonRecord.season)));
+      if (idx > 0) {
+        const prevRec = priorRecords[idx - 1];
+        // compute prev totals similar to current
+        const prevPlotIds = prevRec.plot_ids || [];
+        const prevEconomic = await EconomicRecordEntry.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        const prevLabour = await LabourEntry.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        const prevRevenue = await RevenueRecord.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        let prevLabourCost = 0, prevEconomicCost = 0, prevRevenueTotal = 0;
+        prevLabour.forEach(r => { prevLabourCost += r.cost_plot_rwf || 0; });
+        prevEconomic.forEach(r => { prevEconomicCost += r.total_plot_rwf || 0; });
+        prevRevenue.forEach(r => { prevRevenueTotal += r.revenue_plot_rwf || 0; });
+        const prevTotalCost = prevLabourCost + prevEconomicCost;
+        const prevPlotCount = prevPlotIds.length || 1;
+        const prevAvgPlotSize = (prevRec.plot_size_ha || 0.25) * prevPlotCount;
+        const profitPrevHa = prevAvgPlotSize > 0 ? (prevRevenueTotal - prevTotalCost) / prevAvgPlotSize : 0;
+        const profitCurrHa = avgPlotSize > 0 ? totalProfit / avgPlotSize : 0;
+        if ((farmSeasonRecord.farmingSystem || '') !== (prevRec.farmingSystem || '')) {
+          adoptionCostValue = Math.max(0, profitPrevHa - profitCurrHa);
+        } else {
+          adoptionCostValue = null; // Stable system — no adoption cost applies
+        }
+      }
+    } catch (e) {
+      // leave adoptionCostValue as-is (may be null or previously stored)
+    }
+
     res.json({ ok: true, data: {
       profit_ha: Math.round(profit_ha),
       revenue_ha: Math.round(revenue_ha),
@@ -503,13 +543,16 @@ app.get('/api/computation-results/latest/:farm_id/:season_ref', authGuard(), asy
       cbr: Math.round(cbr * 10) / 10,
       roi: Math.round(roi * 100) / 100,
       cpu: Math.round(cpu),
+      yield_kg_plot: Math.round(yield_kg_plot),
+      yield_kg_ha: Math.round(yield_kg_ha),
+      total_yield_kg: Math.round(totalYield),
       delta_profit: Math.round(profit_ha * 0.24),
       delta_cbr: Math.round((cbr * 0.18) * 10) / 10,
       delta_roi: Math.round((roi * 0.21) * 100) / 100,
       delta_cpu: Math.round(cpu * -0.13),
       phase: farmSeasonRecord.phase || 'TRANSITION',
-      seasons_elapsed: farmSeasonRecord.seasons_elapsed || 1,
-      adoption_cost: farmSeasonRecord.adoption_cost || 0,
+      seasons_elapsed: 1,
+      adoption_cost: adoptionCostValue,
       trend_profit: totalProfit > 0 ? 'IMPROVING' : 'STABLE',
       alerts: totalLabourCost === 0 ? [{ type: 'warning', message: 'No labour data recorded' }] : [],
       hasData: labourRecords.length > 0 || revenueRecords.length > 0
@@ -1178,10 +1221,11 @@ app.get("/api/computation-results/:farm_season_id", authGuard(), async (req, res
           delta_cpu: 0,
           phase: 'TRANSITION',
           seasons_elapsed: 0,
-          adoption_cost: 0,
+          adoption_cost: null,
           trend_profit: 'STABLE',
           alerts: [],
-          hasData: false
+          hasData: false,
+          adoption_message: 'Stable system — no adoption cost applies'
         }
       });
     }
@@ -1221,6 +1265,55 @@ app.get("/api/computation-results/:farm_season_id", authGuard(), async (req, res
     const roi = revenue_ha > 0 ? profit_ha / Math.max(revenue_ha, 1) : 0;
     const cpu = totalYield > 0 ? totalSystemCost / totalYield : 0;
 
+    // Compute adoption cost using previous season profit difference when system changed
+    let adoptionCostValue = farmSeasonRecord.adoption_cost ?? null;
+    try {
+      const priorRecords = await mongoose.connection.collection('farm_season_records')
+        .find({ $or: [ { farm_id: farmSeasonRecord.farm_id }, { farmId: farmSeasonRecord.farm_id } ] })
+        .sort({ year: 1, season: 1 })
+        .toArray();
+      const idx = priorRecords.findIndex(r => (r.season_ref === farmSeasonRecord.season_ref || (r.year === farmSeasonRecord.year && r.season === farmSeasonRecord.season)));
+      if (idx > 0) {
+        const prevRec = priorRecords[idx - 1];
+        const prevPlotIds = prevRec.plot_ids || [];
+        const prevEconomic = await EconomicRecordEntry.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        const prevLabour = await LabourEntry.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        const prevRevenue = await RevenueRecord.find({ plot_id: { $in: prevPlotIds }, trial_season_id: prevRec._id });
+        let prevLabourCost = 0, prevEconomicCost = 0, prevRevenueTotal = 0;
+        prevLabour.forEach(r => { prevLabourCost += r.cost_plot_rwf || 0; });
+        prevEconomic.forEach(r => { prevEconomicCost += r.total_plot_rwf || 0; });
+        prevRevenue.forEach(r => { prevRevenueTotal += r.revenue_plot_rwf || 0; });
+        const prevTotalCost = prevLabourCost + prevEconomicCost;
+        const prevPlotCount = prevPlotIds.length || 1;
+        const prevAvgPlotSize = (prevRec.plot_size_ha || 0.25) * prevPlotCount;
+        const profitPrevHa = prevAvgPlotSize > 0 ? (prevRevenueTotal - prevTotalCost) / prevAvgPlotSize : 0;
+        const profitCurrHa = avgPlotSize > 0 ? totalProfit / avgPlotSize : 0;
+        if ((farmSeasonRecord.farmingSystem || '') !== (prevRec.farmingSystem || '')) {
+          adoptionCostValue = Math.max(0, profitPrevHa - profitCurrHa);
+        } else {
+          adoptionCostValue = null; // Stable system — no adoption cost applies
+        }
+      }
+    } catch (e) {
+      // keep adoptionCostValue as-is
+    }
+
+    // Compute research-mode adoption cost (treatment-level) when CA and CF present
+    const adoption_costs = {};
+    try {
+      if (treatmentList.includes('CA') && treatmentList.includes('CF')) {
+        const arrCF = treatmentProfits['CF'] || [];
+        const arrCA = treatmentProfits['CA'] || [];
+        const meanCF = arrCF.length > 0 ? mean(arrCF) : null;
+        const meanCA = arrCA.length > 0 ? mean(arrCA) : null;
+        adoption_costs.CA = (meanCF !== null && meanCA !== null) ? Math.max(0, meanCF - meanCA) : null;
+      }
+      // ensure all treatments have an explicit entry (null when not computed)
+      for (const t of treatmentList) if (!(t in adoption_costs)) adoption_costs[t] = null;
+    } catch (e) {
+      for (const t of treatmentList) adoption_costs[t] = null;
+    }
+
     res.json({
       ok: true,
       data: {
@@ -1239,7 +1332,7 @@ app.get("/api/computation-results/:farm_season_id", authGuard(), async (req, res
         delta_cpu: Math.round(cpu * -0.13),
         phase: farmSeasonRecord.phase || 'TRANSITION',
         seasons_elapsed: 1,
-        adoption_cost: 0,
+        adoption_cost: adoptionCostValue,
         trend_profit: totalProfit > 0 ? 'IMPROVING' : 'STABLE',
         alerts: totalLabourCost === 0 ? [{ type: 'warning', message: 'No labour data recorded' }] : [],
         hasData: labourRecords.length > 0 || revenueRecords.length > 0
@@ -1557,6 +1650,7 @@ app.get("/api/trial-results/:trial_season_id", authGuard(), async (req, res) => 
         cbr: Object.fromEntries(treatmentList.map(t => [t, results[t]?.cbr || 0])),
         roi: Object.fromEntries(treatmentList.map(t => [t, results[t]?.roi || 0])),
         cpu: Object.fromEntries(treatmentList.map(t => [t, results[t]?.cpu || 0])),
+        adoption_costs,
         treatment_stats: treatmentStats,
         statistics: {
           p_value: parseFloat(p_value.toFixed(4)),
@@ -1585,6 +1679,10 @@ app.get("/api/trial-results/:trial_season_id", authGuard(), async (req, res) => 
 });
 
 const port = Number(process.env.API_PORT || 4000);
-app.listen(port, () => {
-  console.log(`FarmEvidence API listening on ${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`FarmEvidence API listening on ${port}`);
+  });
+}
+
+export { app };

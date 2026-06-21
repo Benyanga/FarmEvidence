@@ -50,7 +50,33 @@ router.get('/:farmId/:year/:season', requireAuth, async (req, res) => {
       j4: farm.csi_j4, j5: farm.csi_j5, j6: farm.csi_j6
     });
     const csiInterpretation = interpretCSI(csi);
-    const cAdopt = computeAdoptionCost(farm.adoptionCostInitial || 0, t, 0.5);
+    // Adoption cost: only computed when the farming system changes from previous season
+    let cAdopt = null;
+    try {
+      const priorRecords = await Plot.find({ farmId: farm._id, recordType: 'farm_season' }).sort({ year: 1, season: 1 }).lean();
+      const idx = priorRecords.findIndex(r => (r.year === record.year && r.season === record.season));
+      if (idx > 0) {
+        const prevRec = priorRecords[idx - 1];
+        const prevAgg = aggregatePlot(prevRec, {
+          ...params,
+          plotSizeM2: prevRec.plotSizeM2 || params.plotSizeM2,
+          marketPriceRWF: prevRec.marketPriceRWF || params.marketPriceRWF
+        });
+        const profitPrevHa = (prevAgg.revPerHa || 0) - (prevAgg.costPerHa || 0);
+        const profitCurrHa = (agg.revPerHa || 0) - (agg.costPerHa || 0);
+        if ((record.farmingSystem || '') !== (prevRec.farmingSystem || '')) {
+          cAdopt = Math.max(0, profitPrevHa - profitCurrHa);
+        } else {
+          cAdopt = null; // Stable system — no adoption cost applies
+        }
+      } else {
+        // No prior season — fall back to decay model from farm defaults
+        cAdopt = computeAdoptionCost(farm.adoptionCostInitial || 0, t, 0.5);
+      }
+    } catch (e) {
+      // On any error, fallback to decay model
+      cAdopt = computeAdoptionCost(farm.adoptionCostInitial || 0, t, 0.5);
+    }
 
     // Break-even (single system — no comparison)
     const ef = 10000 / params.plotSizeM2;

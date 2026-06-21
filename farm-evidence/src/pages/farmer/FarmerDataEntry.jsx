@@ -108,6 +108,8 @@ function SummaryPanel({ data, record }) {
   const grossRevenue = (data.yield || 0) * marketPrice;
   const netBenefit = grossRevenue - totalProductionCost;
   const bcr = totalProductionCost > 0 ? grossRevenue / totalProductionCost : 0;
+  const roi = totalProductionCost > 0 ? (netBenefit / totalProductionCost) * 100 : null;
+  const costPerKg = data.yield > 0 ? totalProductionCost / data.yield : null;
 
   const format = (value) => Math.round(value).toLocaleString();
 
@@ -170,6 +172,16 @@ function SummaryPanel({ data, record }) {
       <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
         <p className="text-xs font-semibold uppercase text-slate-500">BCR</p>
         <p className="mt-2 text-2xl font-bold text-slate-900">{bcr.toFixed(2)}</p>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">ROI</p>
+        <p className="mt-2 text-2xl font-bold text-slate-900">{roi != null ? `${roi.toFixed(1)}%` : '—'}</p>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase text-slate-500">Cost per kg</p>
+        <p className="mt-2 text-2xl font-bold text-slate-900">{costPerKg != null ? `${costPerKg.toFixed(1)} RWF` : '—'}</p>
       </div>
     </div>
   );

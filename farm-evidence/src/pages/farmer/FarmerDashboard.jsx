@@ -15,6 +15,8 @@ const LABELS = {
     grossRevenue: 'Gross Revenue',
     netBenefit: 'Net Benefit',
     bcr: 'Break-Cost Ratio',
+    roi: 'ROI',
+    costPerKg: 'Cost per kg',
     bcrExplanation: 'For every 1 RWF spent, you got back',
     breakEvenStatus: 'Break-Even Status',
     marginOfSafety: 'Margin of Safety',
@@ -410,6 +412,14 @@ export default function FarmerDashboard() {
                   label={labels.bcr}
                   value={analysis.bcr ? analysis.bcr.toFixed(2) : '0'}
                   subtext={`${labels.bcrExplanation} ${analysis.bcr ? analysis.bcr.toFixed(2) : '0'} RWF`}
+                />
+                <KeyNumbersCard
+                  label={labels.roi}
+                  value={analysis.record?.roi != null ? `${analysis.record.roi.toFixed(1)}%` : '0%'}
+                />
+                <KeyNumbersCard
+                  label={labels.costPerKg}
+                  value={analysis.record?.costPerKg != null ? `${analysis.record.costPerKg.toFixed(1)} RWF` : '—'}
                 />
               </div>
             </div>

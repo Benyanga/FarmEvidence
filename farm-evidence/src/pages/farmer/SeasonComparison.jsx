@@ -113,8 +113,10 @@ function seasonLabel(item) {
 
 function formatValue(value, suffix = '') {
   if (value == null || Number.isNaN(Number(value))) return '—';
-  const rounded = typeof value === 'number' ? Math.round(value) : Number(value);
-  return `${rounded.toLocaleString()}${suffix}`;
+  const numeric = Number(value);
+  if (suffix === '%') return `${numeric.toFixed(1)}${suffix}`;
+  if (suffix === ' RWF' && !Number.isInteger(numeric)) return `${Number(numeric.toFixed(1)).toLocaleString()}${suffix}`;
+  return `${Math.round(numeric).toLocaleString()}${suffix}`;
 }
 
 function deltaLabel(value, invert = false) {
@@ -363,11 +365,13 @@ function SeasonComparison() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[
-                        { label: 'Total Cost', a: comparison.totalCostA, b: comparison.totalCostB, invert: true },
-                        { label: 'Gross Revenue', a: comparison.grossRevenueA, b: comparison.grossRevenueB },
-                        { label: 'Net Benefit', a: comparison.netBenefitA, b: comparison.netBenefitB },
-                        { label: 'Yield', a: comparison.yieldA, b: comparison.yieldB },
-                        { label: 'BCR', a: comparison.bcrA, b: comparison.bcrB },
+                        { label: 'Total Cost', a: comparison.totalCostA, b: comparison.totalCostB, invert: true, suffix: ' RWF' },
+                        { label: 'Gross Revenue', a: comparison.grossRevenueA, b: comparison.grossRevenueB, suffix: ' RWF' },
+                        { label: 'Net Benefit', a: comparison.netBenefitA, b: comparison.netBenefitB, suffix: ' RWF' },
+                        { label: 'Yield', a: comparison.yieldA, b: comparison.yieldB, suffix: ' kg' },
+                        { label: 'BCR', a: comparison.bcrA, b: comparison.bcrB, suffix: '' },
+                        { label: 'ROI (%)', a: comparison.roiA, b: comparison.roiB, suffix: '%' },
+                        { label: 'Cost/kg', a: comparison.costPerKgA, b: comparison.costPerKgB, invert: true, suffix: ' RWF' },
                       ].map((metric) => {
                         const change = metric.a != null && metric.b != null ? ((metric.b - metric.a) / Math.max(Math.abs(metric.a), 1)) * 100 : null;
                         return (
@@ -379,11 +383,11 @@ function SeasonComparison() {
                             <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-700">
                               <div className="rounded-2xl bg-slate-50 p-3">
                                 <div className="text-xs uppercase text-slate-500">A</div>
-                                <div className="mt-2 font-semibold">{formatValue(metric.a, metric.label === 'BCR' ? '' : metric.label === 'Yield' ? ' kg' : metric.label === 'Total Cost' || metric.label === 'Gross Revenue' || metric.label === 'Net Benefit' ? ' RWF' : '')}</div>
+                                <div className="mt-2 font-semibold">{formatValue(metric.a, metric.suffix || '')}</div>
                               </div>
                               <div className="rounded-2xl bg-slate-50 p-3">
                                 <div className="text-xs uppercase text-slate-500">B</div>
-                                <div className="mt-2 font-semibold">{formatValue(metric.b, metric.label === 'BCR' ? '' : metric.label === 'Yield' ? ' kg' : metric.label === 'Total Cost' || metric.label === 'Gross Revenue' || metric.label === 'Net Benefit' ? ' RWF' : '')}</div>
+                                <div className="mt-2 font-semibold">{formatValue(metric.b, metric.suffix || '')}</div>
                               </div>
                             </div>
                           </div>
