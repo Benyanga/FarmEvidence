@@ -1314,6 +1314,21 @@ app.get("/api/computation-results/:farm_season_id", authGuard(), async (req, res
       for (const t of treatmentList) adoption_costs[t] = null;
     }
 
+    // Compute research-mode adoption cost (treatment-level) when CA and CF present
+    let adoption_costs = {};
+    try {
+      if (treatmentList.includes('CA') && treatmentList.includes('CF')) {
+        const arrCF = treatmentProfits['CF'] || [];
+        const arrCA = treatmentProfits['CA'] || [];
+        const meanCF = arrCF.length > 0 ? mean(arrCF) : null;
+        const meanCA = arrCA.length > 0 ? mean(arrCA) : null;
+        adoption_costs.CA = (meanCF !== null && meanCA !== null) ? Math.max(0, meanCF - meanCA) : null;
+      }
+      for (const t of treatmentList) if (!(t in adoption_costs)) adoption_costs[t] = null;
+    } catch (e) {
+      for (const t of treatmentList) adoption_costs[t] = null;
+    }
+
     res.json({
       ok: true,
       data: {
