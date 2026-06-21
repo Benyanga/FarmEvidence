@@ -1,0 +1,29 @@
+name: Server Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./farm-evidence
+        run: npm ci
+
+      - name: Run server tests
+        working-directory: ./farm-evidence
+        env:
+          NODE_ENV: test
+        run: npm run test:server
