@@ -6,4 +6,7 @@ export default defineConfig({
     globals: true,
     include: ['server/tests/**'],
   },
+  ssr: {
+    noExternal: true,
+  },
 });
