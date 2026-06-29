@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('LabourEntry model', () => {
   it('defines schema with required fields', async () => {
-    const LabourEntry = (await import('../../models/LabourEntry.js')).default;
+    const LabourEntry = (await import('../models/LabourEntry.js')).default;
     const instance = new LabourEntry({
       plot_id: 'P1',
       trial_season_id: new mongoose.Types.ObjectId(),
@@ -20,7 +20,7 @@ describe('LabourEntry model', () => {
   });
 
   it('validates time unit enum', async () => {
-    const LabourEntry = (await import('../../models/LabourEntry.js')).default;
+    const LabourEntry = (await import('../models/LabourEntry.js')).default;
     const instance = new LabourEntry({
       plot_id: 'P1',
       trial_season_id: new mongoose.Types.ObjectId(),
